@@ -1,0 +1,66 @@
+#!/usr/bin/bash
+
+usage="$(basename "$0") [-h] [-u url] [-o output] -- free scribd .pdf downloader
+
+options:
+    -h  show this help text
+    -u  scribd url
+    -o  output file name (omit the .pdf extension)"
+
+url=""
+output_file_name="scribd-thief-output-file"
+
+while getopts ':hu:o:' option; do
+	case "$option" in
+		h) echo "$usage"
+		   exit
+		   ;;
+		u) url="$OPTARG"
+		   ;;
+		o) output_file_name=$OPTARG
+		   ;;
+		:) printf "Missing argument \n" >&2
+		   echo "$usage" >&2
+		   exit 1
+		   ;;
+		\?) printf "Illegal option \n" >&2
+		    echo "$usage" >&2
+		    exit 1
+		    ;;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [[ -z "$url" ]]; then
+	echo "Missing argument: -u <url> is required" >&2
+	echo "$usage" >&2
+	exit 1
+fi
+
+touch sources.txt
+
+echo "[scribd-thief] Obtaining source links..."
+google-chrome-stable --headless --disable-gpu --dump-dom "$url" | grep -oE 'contentUrl: "[^"]+' | grep -oE 'https?[^"]+' > sources.txt
+
+get_imgs() {
+	while read l; do
+		curl --compressed --silent $l | grep -oE 'https?://[^\]+\.jpg'
+	done < sources.txt
+}
+
+echo "[scribd-thief] Extracting page links..."
+get_imgs > image-sources.txt
+
+images=()
+
+while read i; do
+	images+=" $i"
+done < image-sources.txt
+
+echo "[scribd-thief] Creating a .pdf file..."
+convert $images $PWD/$output_file_name.pdf
+
+echo "[scribd-thief] Your .pdf file was created at $PWD/$output_file_name.pdf"
+
+rm sources.txt
+rm image-sources.txt
