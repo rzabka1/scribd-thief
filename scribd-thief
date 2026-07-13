@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 usage="$(basename "$0") [-h] [-u url] [-o output] -- free scribd .pdf downloader
 
@@ -37,14 +37,16 @@ if [[ -z "$url" ]]; then
 	exit 1
 fi
 
+echo "[DEBUG]: Url is $url"
+
 touch sources.txt
 
 echo "[scribd-thief] Obtaining source links..."
-google-chrome-stable --headless --disable-gpu --dump-dom "$url" | grep -oE 'contentUrl: "[^"]+' | grep -oE 'https?[^"]+' > sources.txt
+chromium --headless --no-sandbox --disable-gpu --dump-dom "$url" | grep -oE 'contentUrl: "[^"]+' | grep -oE 'https?[^"]+' > sources.txt 2>/dev/null
 
 get_imgs() {
 	while read l; do
-		curl --compressed --silent $l | grep -oE 'https?://[^\]+\.jpg'
+		curl --compressed --silent $l | grep -oE 'https?://[^\]+\.jpg' | sed 's|^http://|https://|'
 	done < sources.txt
 }
 
